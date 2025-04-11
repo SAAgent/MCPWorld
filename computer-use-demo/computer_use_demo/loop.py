@@ -3,6 +3,7 @@ Agentic sampling loop that calls the Anthropic API and local implementation of a
 """
 
 import platform
+import os
 from collections.abc import Callable
 from datetime import datetime
 from enum import StrEnum
@@ -16,6 +17,7 @@ from anthropic import (
     APIError,
     APIResponseValidationError,
     APIStatusError,
+    DefaultHttpxClient
 )
 from anthropic.types.beta import (
     BetaCacheControlEphemeralParam,
@@ -102,7 +104,7 @@ async def sampling_loop(
             betas.append("token-efficient-tools-2025-02-19")
         image_truncation_threshold = only_n_most_recent_images or 0
         if provider == APIProvider.ANTHROPIC:
-            client = Anthropic(api_key=api_key, max_retries=4)
+            client = Anthropic(api_key=api_key, max_retries=4, http_client=DefaultHttpxClient(proxy=os.getenv("http_proxy"), transport=httpx.HTTPTransport(local_address="0.0.0.0")))
             enable_prompt_caching = True
         elif provider == APIProvider.VERTEX:
             client = AnthropicVertex()

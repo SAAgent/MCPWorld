@@ -3,8 +3,8 @@ echo "starting noVNC"
 
 # Start noVNC with explicit websocket settings
 /opt/noVNC/utils/novnc_proxy \
-    --vnc localhost:5900 \
-    --listen 6080 \
+    --vnc localhost:5904 \
+    --listen 0.0.0.0:6080 \
     --web /opt/noVNC \
     > /tmp/novnc.log 2>&1 &
 
