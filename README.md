@@ -1,58 +1,44 @@
-# Anthropic Quickstarts
+# Agent Runtime 运行环境
 
-Anthropic Quickstarts is a collection of projects designed to help developers quickly get started with building  applications using the Anthropic API. Each quickstart provides a foundation that you can easily build upon and customize for your specific needs.
+## 配置并启动 Agent Demo
 
-## Getting Started
+进入容器后执行如下配置以启动环境，如下配置假定
+1. 在:4（5904端口） 处启动vncserver，vnc 的分辨率定在 1024x768，这是 Claude 官方文档中推荐的分辨率
+2. 在 6080 端口启动 noVNC 服务
+3. 在 8501 端口启动 streamlit 服务
+4. 在 8081 端口启动主网页的服务器
 
-To use these quickstarts, you'll need an Anthropic API key. If you don't have one yet, you can sign up for free at [console.anthropic.com](https://console.anthropic.com).
+```bash
+# 1. (optional) setup conda environment
+# conda activate agent-env
+pip install -r computer-use-demo/computer_use_demo/requirements.txt
 
-## Available Quickstarts
+# 2. start vnc server 
 
-### Customer Support Agent
+vncserver -xstartup /home/agent/.vnc/xstartup  -geometry  1024x768 :4
 
-A customer support agent powered by Claude. This project demonstrates how to leverage Claude's natural language understanding and generation capabilities to create an AI-assisted customer support system with access to a knowledge base.
+# 3. start noVNC service
 
-[Go to Customer Support Agent Quickstart](./customer-support-agent)
+/opt/noVNC/utils/novnc_proxy \
+    --vnc 0.0.0.0:5904 \
+    --listen 0.0.0.0:6080 \
+    --web /opt/noVNC \
+    > /tmp/novnc.log 2>&1 &
 
-### Financial Data Analyst
+# 4. start main page server 
 
-A financial data analyst powered by Claude. This project demonstrates how to leverage Claude's capabilities with interactive data visualization to analyze financial data via chat.
+python computer-use-demo/image/http_server.py    > /tmp/server_logs.txt 2>&1 &
 
-[Go to Financial Data Analyst Quickstart](./financial-data-analyst)
+# 5. start streamlit server 
+cd computer-use-demo
+STREAMLIT_SERVER_PORT=8501 python -m streamlit run computer_use_demo/streamlit.py
+```
+随后访问`http://your-ip:8081`即可进入主页环境中
 
-### Computer Use Demo
+（建议）进入 xfce4 环境后把 Firefox 加入底层任务栏中，Claude 的 prompt 中涉及了这块的配置
 
-An environment and tools that Claude can use to control a desktop computer. This project demonstrates how to leverage the computer use capabilities of the new Claude 3.5 Sonnet model.
+（建议）在桌面环境中把自动锁屏关掉
 
-[Go to Computer Use Demo Quickstart](./computer-use-demo)
+（已知问题） localhost IP 在如 noVNC 服务中不一定总是可用，必要时可以手动把 0.0.0.0 之流改成容器外 IP
 
-## General Usage
-
-Each quickstart project comes with its own README and setup instructions. Generally, you'll follow these steps:
-
-1. Clone this repository
-2. Navigate to the specific quickstart directory
-3. Install the required dependencies
-4. Set up your Anthropic API key as an environment variable
-5. Run the quickstart application
-
-## Explore Further
-
-To deepen your understanding of working with Claude and the Anthropic API, check out these resources:
-
-- [Anthropic API Documentation](https://docs.anthropic.com)
-- [Anthropic Cookbook](https://github.com/anthropics/anthropic-cookbook) - A collection of code snippets and guides for common tasks
-- [Anthropic API Fundamentals Course](https://github.com/anthropics/courses/tree/master/anthropic_api_fundamentals)
-
-## Contributing
-
-We welcome contributions to the Anthropic Quickstarts repository! If you have ideas for new quickstart projects or improvements to existing ones, please open an issue or submit a pull request.
-
-## Community and Support
-
-- Join our [Anthropic Discord community](https://www.anthropic.com/discord) for discussions and support
-- Check out the [Anthropic support documentation](https://support.anthropic.com) for additional help
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## 配置并启动 Evaluator Demo
