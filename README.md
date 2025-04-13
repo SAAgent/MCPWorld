@@ -42,3 +42,8 @@ STREAMLIT_SERVER_PORT=8501 python -m streamlit run computer_use_demo/streamlit.p
 （已知问题） localhost IP 在如 noVNC 服务中不一定总是可用，必要时可以手动把 0.0.0.0 之流改成容器外 IP
 
 ## 配置并启动 Evaluator Demo
+目前的实现中 streamlit.py 已经集成了 evaluator 的服务，因此只需要启动 streamlit 服务即可。
+
+当前的实现能在网页中同时运行 Agent 和 Evaluator，在运行的过程中配置单个任务并测试 Agent 是否能够完成任务。
+
+但目前还需要手动输入单个任务的instruction，点击发送给云端 LLM 后执行任务。
