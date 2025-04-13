@@ -730,9 +730,9 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(FILE_ROOT))
 EVALUATOR_PATH = os.path.join(PROJECT_ROOT, "PC-Canary")
 if os.path.exists(EVALUATOR_PATH) and EVALUATOR_PATH not in sys.path:
     sys.path.append(EVALUATOR_PATH)
-from evaluator.core.base_evaluator import EventData, EventType
+from evaluator.core.base_evaluator import EventData, EventType, BaseEvaluator
     
-def handle_evaluator_event(event_data: EventData):
+def handle_evaluator_event(event_data: EventData, evaluator: BaseEvaluator):
     """处理评估器事件，直接更新Streamlit会话状态"""
     print(f"处理事件: {event_data.event_type} - {event_data.message}")
     
