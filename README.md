@@ -2,6 +2,11 @@
 
 ## 配置并启动 Agent Demo
 
+需要克隆本仓库，并先配置好 submodule PC-Canary，以搭建 VNC 桌面环境，通过PC-Canary下的 Dockerfile 构建容器环境
+```bash
+git submodule update --init PC-Canary
+```
+
 进入容器后执行如下配置以启动环境，如下配置假定
 1. 在:4（5904端口） 处启动vncserver，vnc 的分辨率定在 1024x768，这是 Claude 官方文档中推荐的分辨率
 2. 在 6080 端口启动 noVNC 服务
@@ -12,7 +17,7 @@
 # 1. (optional) setup conda environment
 # conda activate agent-env
 pip install -r computer-use-demo/computer_use_demo/requirements.txt
-
+pip install -r /workspace/PC-Canary/requirements.txt
 # 2. start vnc server 
 
 vncserver -xstartup /home/agent/.vnc/xstartup  -geometry  1024x768 :4

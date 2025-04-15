@@ -10,3 +10,4 @@ conda init --all
 conda create -y -n agent-env python=3.11
 conda activate agent-env
 pip install -r computer-use-demo/computer_use_demo/requirements.txt
+pip install -r /workspace/PC-Canary/requirements.txt
