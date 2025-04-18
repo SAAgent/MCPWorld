@@ -10,12 +10,14 @@
     "workspaceFolder": "/workspace",
     "mounts": [
         "source=${localWorkspaceFolder},target=/workspace,type=bind",
-        "source=telegram-data2,target=/apps/tdesktop/Debug,type=volume",
-        "source=${localWorkspaceFolder}/PC-Canary/apps/tdesktop/out/Debug/Telegram,target=/apps/tdesktop/Debug/Telegram,type=bind"
+        // "source=telegram-data2,target=/apps/tdesktop/Debug,type=volume",
+        // "source=${localWorkspaceFolder}/PC-Canary/apps/tdesktop/out/Debug/Telegram,target=/apps/tdesktop/Debug/Telegram,type=bind"
     ],
     "postCreateCommand": "/workspace/PC-Canary/.devcontainer/postCreateCommand.sh",
     // "image": "benchmark:latest",
     "containerEnv": {
+        "WIDTH": "1024",
+        "HEIGHT": "768",
         // "DISPLAY": "${localEnv:DISPLAY}",
         // "HTTP_PROXY": "${localEnv:http_proxy}",
         // "HTTPS_PROXY": "${localEnv:https_proxy}",
@@ -35,9 +37,7 @@
         "--ulimit",
         "memlock=-1",
         "--device=/dev/kvm",
-        "-v",
-        "/tmp/.X11-unix:/tmp/.X11-unix",
-        "-v",
-        "/data/yyh/.Xauthority:/home/agent/.Xauthority"
+        // "-v",
+        // "/tmp/.X11-unix:/tmp/.X11-unix",
     ]
 }
