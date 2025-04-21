@@ -54,4 +54,4 @@ STREAMLIT_SERVER_PORT=8501 python -m streamlit run computer_use_demo/streamlit.p
 
 在完成上述的配置，接入可执行应用如 tdesktop 后，就可以在实际 demo 网页中使用 evaluator。
 
-目前还需要手动输入单个任务的instruction，点击发送给云端 LLM 后执行任务，由于 streamlit 库的一些限制，目前需要完成任务后手动刷新一下才能让结果在网页上显示。
+目前还需要手动输入单个任务的instruction，点击发送给云端 LLM 后执行任务。此外由于 streamlit 库的一些限制，目前需要完成任务后手动刷新一下才能让结果在网页上显示。
