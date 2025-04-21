@@ -15,7 +15,7 @@ git submodule update --init PC-Canary
 
 ```bash
 # 1. setup conda environment
-conda activate agent-env
+# conda activate agent-env
 pip install -r computer-use-demo/computer_use_demo/requirements.txt
 # 2. start vnc server 
 
@@ -50,4 +50,8 @@ STREAMLIT_SERVER_PORT=8501 python -m streamlit run computer_use_demo/streamlit.p
 
 当前的实现能在网页中同时运行 Agent 和 Evaluator，在运行的过程中配置单个任务并测试 Agent 是否能够完成任务。
 
-但目前还需要手动输入单个任务的instruction，点击发送给云端 LLM 后执行任务。
+但是实际使用 Evaluator 需要配置好用于评测的 app。在 PC-Canary 的 README 中描述了一个示例：其将 tdesktop 客户端的代码主仓库作为 submodule 引入，将应用客户端编译以后接入容器环境中评测。
+
+在完成上述的配置，接入可执行应用如 tdesktop 后，就可以在实际 demo 网页中使用 evaluator。
+
+目前还需要手动输入单个任务的instruction，点击发送给云端 LLM 后执行任务，由于 streamlit 库的一些限制，目前需要完成任务后手动刷新一下才能让结果在网页上显示。
