@@ -14,10 +14,9 @@ git submodule update --init PC-Canary
 4. 在 8081 端口启动主网页的服务器
 
 ```bash
-# 1. (optional) setup conda environment
-# conda activate agent-env
+# 1. setup conda environment
+conda activate agent-env
 pip install -r computer-use-demo/computer_use_demo/requirements.txt
-pip install -r /workspace/PC-Canary/requirements.txt
 # 2. start vnc server 
 
 vncserver -xstartup /home/agent/.vnc/xstartup  -geometry  1024x768 :4
