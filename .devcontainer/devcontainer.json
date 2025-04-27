@@ -4,12 +4,14 @@
         "dockerfile": "../PC-Canary/.devcontainer/Dockerfile",
         "args": {
             "HTTP_PROXY": "${localEnv:http_proxy}",
-            "HTTPS_PROXY": "${localEnv:http_proxy}"
+            "HTTPS_PROXY": "${localEnv:http_proxy}",
+            "USER_UID": "1037",
+            "USER_GID": "1037"
         }
     },
     "workspaceFolder": "/workspace",
     "mounts": [
-        "source=${localWorkspaceFolder},target=/workspace,type=bind",
+        "source=${localWorkspaceFolder},target=/workspace,type=bind"
         // "source=telegram-data2,target=/apps/tdesktop/Debug,type=volume",
         // "source=${localWorkspaceFolder}/PC-Canary/apps/tdesktop/out/Debug/Telegram,target=/apps/tdesktop/Debug/Telegram,type=bind"
     ],
@@ -18,18 +20,24 @@
     "containerEnv": {
         "WIDTH": "1024",
         "HEIGHT": "768",
-        // "DISPLAY": "${localEnv:DISPLAY}",
-        // "HTTP_PROXY": "${localEnv:http_proxy}",
-        // "HTTPS_PROXY": "${localEnv:https_proxy}",
-        // "DISPLAY": ":13",
-        // "HTTP_PROXY": "${localEnv:http_proxy}",
-        // "HTTPS_PROXY": "${localEnv:https_proxy}"
+        "DISPLAY_SIZEW": "1024",
+        "DISPLAY_SIZEH": "768",
+        "DISPLAY_REFRESH": "60",
+        "DISPLAY_DPI": "96",
+        "DISPLAY_CDEPTH": "24",
+        "PASSWD": "mypasswd",
+        "KASMVNC_ENABLE": "true",
+        "SELKIES_ENCODER": "nvh264enc",
+        "SELKIES_VIDEO_BITRATE": "8000",
+        "SELKIES_FRAMERATE": "60",
+        "SELKIES_AUDIO_BITRATE": "128000",
+        "SELKIES_BASIC_AUTH_PASSWORD": "mypasswd"
     },
+    "remoteUser": "agent",
     "runArgs": [
         "--privileged",
-        // "--gpus",
-        // "all",
-        // "--ipc",
+        "--gpus",
+        "1",
         "--net",
         "host",
         "--shm-size",
@@ -37,7 +45,9 @@
         "--ulimit",
         "memlock=-1",
         "--device=/dev/kvm",
-        // "-v",
-        // "/tmp/.X11-unix:/tmp/.X11-unix",
+        "-v",
+        "/tmp/.X11-unix:/tmp/.X11-unix",
+        "--tmpfs",
+        "/dev/shm:rw"
     ]
 }

@@ -3,6 +3,7 @@
     <head>
         <title>Computer Use Demo</title>
         <meta name="permissions-policy" content="fullscreen=*" />
+        <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
         <style>
             body {
                 margin: 0;
@@ -31,13 +32,13 @@
             <iframe
                 src="http://localhost:8501"
                 class="left"
-                allow="fullscreen"
+                allow="fullscreen; same-origin"
             ></iframe>
             <iframe
                 id="vnc"
-                src="http://127.0.0.1:6080/vnc.html?&resize=scale&autoconnect=1&view_only=1&reconnect=1&reconnect_delay=2000"
+                src="https://localhost:8449/?view_only=1&resize=scale"
                 class="right"
-                allow="fullscreen"
+                allow="fullscreen; same-origin; credentials"
             ></iframe>
             <button
                 id="toggleViewOnly"
