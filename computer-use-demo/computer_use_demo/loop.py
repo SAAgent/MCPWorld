@@ -7,7 +7,8 @@ import os
 from collections.abc import Callable
 from datetime import datetime
 from enum import StrEnum
-from typing import Any, cast
+from typing import Any, cast, Optional, List
+import time
 
 import httpx
 from anthropic import (
@@ -39,6 +40,13 @@ from .tools import (
 )
 
 PROMPT_CACHING_BETA_FLAG = "prompt-caching-2024-07-31"
+
+try:
+    from evaluator.core.base_evaluator import BaseEvaluator
+    from evaluator.core.events import AgentEvent
+except ImportError:
+    BaseEvaluator = None
+    AgentEvent = None
 
 
 class APIProvider(StrEnum):
@@ -81,6 +89,8 @@ async def sampling_loop(
         [httpx.Request, httpx.Response | object | None, Exception | None], None
     ],
     api_key: str,
+    evaluator: Optional[BaseEvaluator] = None,
+    evaluator_task_id: Optional[str] = None,
     only_n_most_recent_images: int | None = None,
     max_tokens: int = 4096,
     tool_version: ToolVersion,
@@ -104,7 +114,7 @@ async def sampling_loop(
             betas.append("token-efficient-tools-2025-02-19")
         image_truncation_threshold = only_n_most_recent_images or 0
         if provider == APIProvider.ANTHROPIC:
-            client = Anthropic(api_key=api_key, max_retries=4, http_client=DefaultHttpxClient(proxy=os.getenv("http_proxy"), transport=httpx.HTTPTransport(local_address="0.0.0.0")))
+            client = Anthropic(api_key=api_key, max_retries=4, http_client=httpx.Client(proxy="http://10.109.246.210:10809"))
             enable_prompt_caching = True
         elif provider == APIProvider.VERTEX:
             client = AnthropicVertex()
@@ -169,22 +179,92 @@ async def sampling_loop(
         )
 
         tool_result_content: list[BetaToolResultBlockParam] = []
+        tool_calls_processed = False
+
         for content_block in response_params:
             output_callback(content_block)
             if content_block["type"] == "tool_use":
-                result = await tool_collection.run(
-                    name=content_block["name"],
-                    tool_input=cast(dict[str, Any], content_block["input"]),
-                )
-                tool_result_content.append(
-                    _make_api_tool_result(result, content_block["id"])
-                )
-                tool_output_callback(result, content_block["id"])
+                tool_calls_processed = True
+                tool_name = content_block["name"]
+                tool_input = cast(dict[str, Any], content_block["input"])
+                tool_use_id = content_block["id"]
+
+                tool_result: Optional[ToolResult] = None
+                tool_error: Optional[str] = None
+                tool_success = False
+                tool_start_time = time.time()
+
+                if evaluator and evaluator_task_id and AgentEvent:
+                    try:
+                        evaluator.record_event(AgentEvent.TOOL_CALL_START, {
+                            'timestamp': tool_start_time,
+                            'tool_name': tool_name,
+                            'args': tool_input
+                        }, evaluator_task_id)
+                    except Exception as rec_e:
+                        print(f"[Evaluator Error] Failed to record TOOL_CALL_START: {rec_e}")
+
+                try:
+                    tool_result = await tool_collection.run(
+                        name=tool_name,
+                        tool_input=tool_input,
+                    )
+                    tool_success = tool_result.error is None
+                    if tool_result.error:
+                        tool_error = tool_result.error
+                except Exception as e:
+                    tool_error = f"Tool execution failed: {e}"
+                    print(f"Error running tool {tool_name}: {e}")
+                    if not isinstance(tool_result, ToolResult):
+                        tool_result = ToolResult(error=tool_error)
+                    tool_success = False
+
+                tool_end_time = time.time()
+
+                if evaluator and evaluator_task_id and AgentEvent:
+                    try:
+                        event_data = {
+                            'timestamp': tool_end_time,
+                            'tool_name': tool_name,
+                            'success': tool_success,
+                            'error': tool_error,
+                            'result': None
+                        }
+                        if tool_success and tool_result and tool_result.output:
+                            output_str = str(tool_result.output)
+                            if len(output_str) > 1000:
+                                event_data['result'] = output_str[:500] + "... (truncated)"
+                            else:
+                                event_data['result'] = output_str
+                        elif tool_success and tool_result and tool_result.base64_image:
+                            event_data['result'] = "[Screenshot Taken]"
+                        evaluator.record_event(AgentEvent.TOOL_CALL_END, event_data, evaluator_task_id)
+                    except Exception as rec_e:
+                        print(f"[Evaluator Error] Failed to record TOOL_CALL_END: {rec_e}")
+
+                if tool_result:
+                    tool_result_content.append(
+                        _make_api_tool_result(tool_result, tool_use_id)
+                    )
+                    tool_output_callback(tool_result, tool_use_id)
+                else:
+                    print(f"Warning: No ToolResult object available for tool_use_id {tool_use_id} after execution attempt.")
+                    fallback_result = ToolResult(error=tool_error or "Unknown tool execution issue")
+                    tool_result_content.append(
+                         _make_api_tool_result(fallback_result, tool_use_id)
+                    )
+                    tool_output_callback(fallback_result, tool_use_id)
 
         if not tool_result_content:
             return messages
 
-        messages.append({"content": tool_result_content, "role": "user"})
+        if tool_calls_processed:
+            if not tool_result_content:
+                print("Warning: Processed tool_use blocks but generated no tool_result_content.")
+            else:
+                messages.append({"role": "user", "content": tool_result_content})
+
+        return messages
 
 
 def _maybe_filter_to_n_most_recent_images(
