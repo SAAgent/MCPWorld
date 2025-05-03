@@ -150,7 +150,22 @@ async def run_agent_loop(args, evaluator: BaseEvaluator): # <-- 接收 evaluator
         print("-" * 30)
         # 获取用户输入
         try:
-            user_input = input("You: ")
+            user_input = ""
+            if turn_count == 0:
+                default_instr = evaluator.default_instruction
+                if default_instr:
+                    prompt = f'You (Press Enter for default: "{default_instr}"): '
+                    user_input = input(prompt)
+                    if not user_input.strip(): # 如果用户只按了回车或输入空白
+                        print(f"Using default instruction: {default_instr}")
+                        user_input = default_instr
+                else:
+                    # 如果没有默认指令，则正常提示
+                    user_input = input("You: ")
+            else:
+                # 非第一轮，正常提示
+                user_input = input("You: ")
+
             if user_input.lower() in ["quit", "exit"]:
                 print("用户请求退出。")
                 break # 正常退出循环
@@ -170,7 +185,7 @@ async def run_agent_loop(args, evaluator: BaseEvaluator): # <-- 接收 evaluator
         evaluator.record_event(AgentEvent.LLM_QUERY_START, {
             'timestamp': llm_start_time,
             'model_name': model_name_to_record
-        }, evaluator.task_id) # 传递 task_id
+        })
 
         print("Assistant thinking...")
         llm_success = False
@@ -215,7 +230,7 @@ async def run_agent_loop(args, evaluator: BaseEvaluator): # <-- 接收 evaluator
             'prompt_tokens': None, # <-- 缺失
             'completion_tokens': None, # <-- 缺失
             'cost': None
-        }, evaluator.task_id) # 传递 task_id
+        })
 
         # --- 检查 Agent 是否报告完成 (简单示例，需要根据实际输出调整) ---
         # if messages:
@@ -292,6 +307,11 @@ if __name__ == "__main__":
         if not evaluator.start():
             print("评估器启动失败！")
             sys.exit(1)
+
+        # 等待评估器内部初始化 (例如启动应用)
+        wait_time = 2 # 秒
+        print(f"[*] 等待 {wait_time} 秒以确保评估器就绪...")
+        time.sleep(wait_time)
 
         print("[*] 启动 Agent 交互循环...")
         # 运行主循环
