@@ -36,6 +36,8 @@ from .tools import (
     ToolVersion,
 )
 
+from .mcpclient import MCPClient
+
 PROMPT_CACHING_BETA_FLAG = "prompt-caching-2024-07-31"
 
 
@@ -88,101 +90,119 @@ async def sampling_loop(
     """
     Agentic sampling loop for the assistant/tool interaction of computer use.
     """
-    tool_group = TOOL_GROUPS_BY_VERSION[tool_version]
-    tool_collection = ToolCollection(*(ToolCls() for ToolCls in tool_group.tools))
-    system = BetaTextBlockParam(
-        type="text",
-        text=f"{SYSTEM_PROMPT}{' ' + system_prompt_suffix if system_prompt_suffix else ''}",
-    )
+    mcp_servers = [] # TODO: get mcp_server_list from config yaml
+    mcp_client = MCPClient()
+    try:
+        for server_path in mcp_servers:
+            await mcp_client.connect_to_server(server_path)
 
-    while True:
-        enable_prompt_caching = False
-        betas = [tool_group.beta_flag] if tool_group.beta_flag else []
-        if token_efficient_tools_beta:
-            betas.append("token-efficient-tools-2025-02-19")
-        image_truncation_threshold = only_n_most_recent_images or 0
-        if provider == APIProvider.ANTHROPIC:
-            client = Anthropic(api_key=api_key, max_retries=4)
-            enable_prompt_caching = True
-        elif provider == APIProvider.VERTEX:
-            client = AnthropicVertex()
-        elif provider == APIProvider.BEDROCK:
-            client = AnthropicBedrock()
+        tool_group = TOOL_GROUPS_BY_VERSION[tool_version]
+        tool_collection = ToolCollection(*(ToolCls() for ToolCls in tool_group.tools))
+        all_tool_list = tool_collection.to_params()
+        mcp_tools = await mcp_client.list_tools()
+        all_tool_list.extend(mcp_tools)
 
-        if enable_prompt_caching:
-            betas.append(PROMPT_CACHING_BETA_FLAG)
-            _inject_prompt_caching(messages)
-            # Because cached reads are 10% of the price, we don't think it's
-            # ever sensible to break the cache by truncating images
-            only_n_most_recent_images = 0
-            # Use type ignore to bypass TypedDict check until SDK types are updated
-            system["cache_control"] = {"type": "ephemeral"}  # type: ignore
-
-        if only_n_most_recent_images:
-            _maybe_filter_to_n_most_recent_images(
-                messages,
-                only_n_most_recent_images,
-                min_removal_threshold=image_truncation_threshold,
-            )
-        extra_body = {}
-        if thinking_budget:
-            # Ensure we only send the required fields for thinking
-            extra_body = {
-                "thinking": {"type": "enabled", "budget_tokens": thinking_budget}
-            }
-
-        # Call the API
-        # we use raw_response to provide debug information to streamlit. Your
-        # implementation may be able call the SDK directly with:
-        # `response = client.messages.create(...)` instead.
-        try:
-            raw_response = client.beta.messages.with_raw_response.create(
-                max_tokens=max_tokens,
-                messages=messages,
-                model=model,
-                system=[system],
-                tools=tool_collection.to_params(),
-                betas=betas,
-                extra_body=extra_body,
-            )
-        except (APIStatusError, APIResponseValidationError) as e:
-            api_response_callback(e.request, e.response, e)
-            return messages
-        except APIError as e:
-            api_response_callback(e.request, e.body, e)
-            return messages
-
-        api_response_callback(
-            raw_response.http_response.request, raw_response.http_response, None
+        system = BetaTextBlockParam(
+            type="text",
+            text=f"{SYSTEM_PROMPT}{' ' + system_prompt_suffix if system_prompt_suffix else ''}",
         )
 
-        response = raw_response.parse()
+        while True:
+            enable_prompt_caching = False
+            betas = [tool_group.beta_flag] if tool_group.beta_flag else []
+            if token_efficient_tools_beta:
+                betas.append("token-efficient-tools-2025-02-19")
+            image_truncation_threshold = only_n_most_recent_images or 0
+            if provider == APIProvider.ANTHROPIC:
+                client = Anthropic(api_key=api_key, max_retries=4, http_client=httpx.Client(proxy="http://10.109.246.210:10809"))
+                enable_prompt_caching = True
+            elif provider == APIProvider.VERTEX:
+                client = AnthropicVertex()
+            elif provider == APIProvider.BEDROCK:
+                client = AnthropicBedrock()
 
-        response_params = _response_to_params(response)
-        messages.append(
-            {
-                "role": "assistant",
-                "content": response_params,
-            }
-        )
+            if enable_prompt_caching:
+                betas.append(PROMPT_CACHING_BETA_FLAG)
+                _inject_prompt_caching(messages)
+                # Because cached reads are 10% of the price, we don't think it's
+                # ever sensible to break the cache by truncating images
+                only_n_most_recent_images = 0
+                # Use type ignore to bypass TypedDict check until SDK types are updated
+                system["cache_control"] = {"type": "ephemeral"}  # type: ignore
 
-        tool_result_content: list[BetaToolResultBlockParam] = []
-        for content_block in response_params:
-            output_callback(content_block)
-            if content_block["type"] == "tool_use":
-                result = await tool_collection.run(
-                    name=content_block["name"],
-                    tool_input=cast(dict[str, Any], content_block["input"]),
+            if only_n_most_recent_images:
+                _maybe_filter_to_n_most_recent_images(
+                    messages,
+                    only_n_most_recent_images,
+                    min_removal_threshold=image_truncation_threshold,
                 )
-                tool_result_content.append(
-                    _make_api_tool_result(result, content_block["id"])
+            extra_body = {}
+            if thinking_budget:
+                # Ensure we only send the required fields for thinking
+                extra_body = {
+                    "thinking": {"type": "enabled", "budget_tokens": thinking_budget}
+                }
+
+            # Call the API
+            # we use raw_response to provide debug information to streamlit. Your
+            # implementation may be able call the SDK directly with:
+            # `response = client.messages.create(...)` instead.
+            try:
+                raw_response = client.beta.messages.with_raw_response.create(
+                    max_tokens=max_tokens,
+                    messages=messages,
+                    model=model,
+                    system=[system],
+                    tools=all_tool_list,
+                    betas=betas,
+                    extra_body=extra_body,
                 )
-                tool_output_callback(result, content_block["id"])
+            except (APIStatusError, APIResponseValidationError) as e:
+                api_response_callback(e.request, e.response, e)
+                return messages
+            except APIError as e:
+                api_response_callback(e.request, e.body, e)
+                return messages
 
-        if not tool_result_content:
-            return messages
+            api_response_callback(
+                raw_response.http_response.request, raw_response.http_response, None
+            )
 
-        messages.append({"content": tool_result_content, "role": "user"})
+            response = raw_response.parse()
+
+            response_params = _response_to_params(response)
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": response_params,
+                }
+            )
+
+            tool_result_content: list[BetaToolResultBlockParam] = []
+            for content_block in response_params:
+                output_callback(content_block)
+                if content_block["type"] == "tool_use":
+                    if content_block["name"] in tool_collection.tool_map.keys():
+                        result = await tool_collection.run(
+                            name=content_block["name"],
+                            tool_input=cast(dict[str, Any], content_block["input"]),
+                        )
+                    else:
+                        result = await mcp_client.call_tool(
+                            name=content_block["name"],
+                            tool_input=cast(dict[str, Any], content_block["input"]),
+                        )
+                    tool_result_content.append(
+                        _make_api_tool_result(result, content_block["id"])
+                    )
+                    tool_output_callback(result, content_block["id"])
+            
+            if not tool_result_content:
+                return messages
+
+            messages.append({"content": tool_result_content, "role": "user"})
+    finally:
+        await mcp_client.cleanup()
 
 
 def _maybe_filter_to_n_most_recent_images(
