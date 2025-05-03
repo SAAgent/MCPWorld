@@ -166,7 +166,10 @@ async def sampling_loop(
     """
     Agentic sampling loop for the assistant/tool interaction of computer use.
     """
-    mcp_servers = [] # TODO: get mcp_server_list from config yaml
+    try:
+        mcp_servers = evaluator.config.get("mcp_server_path", [])
+    except:
+        mcp_servers = []
     mcp_client = MCPClient()
     try:
         for server_path in mcp_servers:

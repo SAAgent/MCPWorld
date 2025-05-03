@@ -38,7 +38,7 @@ class MCPClient:
 
     async def list_tools(self) -> list[BetaToolParam]:
         if not self.sessions:
-            raise RuntimeError("No active sessions. Please connect to a server first.")
+            return []
         tools = []
         for session in self.sessions:
             response = await session.list_tools()
