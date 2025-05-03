@@ -7,7 +7,8 @@ import os
 from collections.abc import Callable
 from datetime import datetime
 from enum import StrEnum
-from typing import Any, cast
+from typing import Any, cast, Optional, List, Dict
+import time
 
 import httpx
 from anthropic import (
@@ -40,6 +41,13 @@ from .tools import (
 
 PROMPT_CACHING_BETA_FLAG = "prompt-caching-2024-07-31"
 
+try:
+    from evaluator.core.base_evaluator import BaseEvaluator
+    from evaluator.core.events import AgentEvent
+except ImportError:
+    BaseEvaluator = None
+    AgentEvent = None
+
 
 class APIProvider(StrEnum):
     ANTHROPIC = "anthropic"
@@ -69,6 +77,70 @@ SYSTEM_PROMPT = f"""<SYSTEM_CAPABILITY>
 </IMPORTANT>"""
 
 
+# --- Evaluator Helper Functions ---
+def _record_tool_call_start(
+    evaluator: Optional[BaseEvaluator],
+    task_id: Optional[str],
+    tool_name: str,
+    tool_input: Dict[str, Any]
+):
+    start_time = time.time()
+    """Records the TOOL_CALL_START event if evaluator is enabled."""
+    if evaluator and task_id and AgentEvent:
+        try:
+            evaluator.record_event(
+                AgentEvent.TOOL_CALL_START,
+                {
+                    "timestamp": start_time,
+                    "tool_name": tool_name,
+                    "args": tool_input,
+                }
+            )
+        except Exception as rec_e:
+            print(f"[Evaluator Error] Failed to record TOOL_CALL_START: {rec_e}")
+
+def _record_tool_call_end(
+    evaluator: Optional[BaseEvaluator],
+    task_id: Optional[str],
+    tool_name: str,
+    tool_result: ToolResult,
+):
+    end_time = time.time()
+    """Records the TOOL_CALL_END event if evaluator is enabled."""
+    if evaluator and task_id and AgentEvent:
+        try:
+            tool_success = not tool_result.error
+            tool_error = tool_result.error
+
+            event_data = {
+                "timestamp": end_time,
+                "tool_name": tool_name,
+                "success": tool_success,
+                "error": tool_error,
+                "result": None,
+            }
+
+            if tool_success:
+                if tool_result.output:
+                    output_str = str(tool_result.output)
+                    if len(output_str) > 1000:
+                        event_data["result"] = output_str[:500] + "... (truncated)"
+                    else:
+                        event_data["result"] = output_str
+                elif tool_result.base64_image:
+                    event_data["result"] = "[Screenshot Taken]"
+            else:
+                event_data["result"] = tool_result.error
+
+            evaluator.record_event(
+                AgentEvent.TOOL_CALL_END,
+                event_data
+            )
+        except Exception as rec_e:
+            print(f"[Evaluator Error] Failed to record TOOL_CALL_END: {rec_e}")
+# --- End Evaluator Helper Functions ---
+
+
 async def sampling_loop(
     *,
     model: str,
@@ -81,6 +153,8 @@ async def sampling_loop(
         [httpx.Request, httpx.Response | object | None, Exception | None], None
     ],
     api_key: str,
+    evaluator: Optional[BaseEvaluator] = None,
+    evaluator_task_id: Optional[str] = None,
     only_n_most_recent_images: int | None = None,
     max_tokens: int = 4096,
     tool_version: ToolVersion,
@@ -104,7 +178,7 @@ async def sampling_loop(
             betas.append("token-efficient-tools-2025-02-19")
         image_truncation_threshold = only_n_most_recent_images or 0
         if provider == APIProvider.ANTHROPIC:
-            client = Anthropic(api_key=api_key, max_retries=4, http_client=DefaultHttpxClient(proxy=os.getenv("http_proxy"), transport=httpx.HTTPTransport(local_address="0.0.0.0")))
+            client = Anthropic(api_key=api_key, max_retries=4)
             enable_prompt_caching = True
         elif provider == APIProvider.VERTEX:
             client = AnthropicVertex()
@@ -172,10 +246,28 @@ async def sampling_loop(
         for content_block in response_params:
             output_callback(content_block)
             if content_block["type"] == "tool_use":
+                tool_name = content_block["name"]
+                tool_input = cast(dict[str, Any], content_block["input"])
+
+                result: Optional[ToolResult] = None
+
+                # --- Record Tool Start ---
+                _record_tool_call_start(
+                    evaluator, evaluator_task_id, tool_name, tool_input
+                )
+                # --- End Record Tool Start ---
+
+
                 result = await tool_collection.run(
                     name=content_block["name"],
                     tool_input=cast(dict[str, Any], content_block["input"]),
                 )
+                
+                _record_tool_call_end(
+                    evaluator, evaluator_task_id, tool_name, result
+                )
+                # --- End Record Tool End ---
+
                 tool_result_content.append(
                     _make_api_tool_result(result, content_block["id"])
                 )
@@ -185,6 +277,7 @@ async def sampling_loop(
             return messages
 
         messages.append({"content": tool_result_content, "role": "user"})
+
 
 
 def _maybe_filter_to_n_most_recent_images(
