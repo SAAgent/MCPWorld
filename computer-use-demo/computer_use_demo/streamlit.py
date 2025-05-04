@@ -730,9 +730,9 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(FILE_ROOT))
 EVALUATOR_PATH = os.path.join(PROJECT_ROOT, "PC-Canary")
 if os.path.exists(EVALUATOR_PATH) and EVALUATOR_PATH not in sys.path:
     sys.path.append(EVALUATOR_PATH)
-from evaluator.core.base_evaluator import EventData, EventType, BaseEvaluator
+from evaluator.core.base_evaluator import BaseEvaluator, CallbackEventData
     
-def handle_evaluator_event(event_data: EventData, evaluator: BaseEvaluator):
+def handle_evaluator_event(event_data: CallbackEventData, evaluator: BaseEvaluator):
     """处理评估器事件，直接更新Streamlit会话状态"""
     print(f"处理事件: {event_data.event_type} - {event_data.message}")
     
@@ -740,7 +740,7 @@ def handle_evaluator_event(event_data: EventData, evaluator: BaseEvaluator):
     st.session_state.evaluator_event_type = event_data.event_type
     st.session_state.evaluator_last_update = time.time()
     
-    if event_data.event_type == EventType.TASK_COMPLETED:
+    if event_data.event_type == "task_completed":
         st.session_state.evaluator_task_completed = True
         st.session_state.evaluator_task_result = event_data.message
         print(f"任务完成: {event_data.message}")
@@ -748,12 +748,12 @@ def handle_evaluator_event(event_data: EventData, evaluator: BaseEvaluator):
         if hasattr(event_data, 'data') and event_data.data:
             st.session_state.evaluator_metrics = event_data.data.get('metrics', {})
     
-    elif event_data.event_type == EventType.TASK_ERROR:
+    elif event_data.event_type == "task_error":
         st.session_state.evaluator_task_completed = False
         st.session_state.evaluator_task_result = event_data.message
         print(f"任务错误: {event_data.message}")
     
-    elif event_data.event_type == EventType.EVALUATOR_STOPPED:
+    elif event_data.event_type == "evaluator_stopped":
         st.session_state.evaluator_task_completed = False
         st.session_state.evaluator_task_result = event_data.message
         print(f"评估器停止: {event_data.message}")
