@@ -11,21 +11,17 @@ class MCPClient:
         self.sessions: list[ClientSession] = []
         self.exit_stack = AsyncExitStack()
 
-    async def connect_to_server(self, server_script_path: str) -> None:
+    async def connect_to_server(self, server_start_option: dict) -> None:
         """Connect to an MCP server
 
-        Args:
-            server_script_path: Path to the server script (.py or .js)
+            Args:
+                server_start_option: Dictionary containing server start configuration, both `command` and `args`.
         """
-        is_python = server_script_path.endswith('.py')
-        is_js = server_script_path.endswith('.js')
-        if not (is_python or is_js):
-            raise ValueError("Server script must be a .py or .js file")
-
-        command = "python" if is_python else "node"
+        command = server_start_option.get('command')
+        args = server_start_option.get('args')
         server_params = StdioServerParameters(
             command=command,
-            args=[server_script_path],
+            args=args,
             env=None
         )
 
