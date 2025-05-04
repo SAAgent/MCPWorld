@@ -186,19 +186,19 @@ async def sampling_loop(
             text=f"{SYSTEM_PROMPT}{' ' + system_prompt_suffix if system_prompt_suffix else ''}",
         )
 
-    while True:
-        enable_prompt_caching = False
-        betas = [tool_group.beta_flag] if tool_group.beta_flag else []
-        if token_efficient_tools_beta:
-            betas.append("token-efficient-tools-2025-02-19")
-        image_truncation_threshold = only_n_most_recent_images or 0
-        if provider == APIProvider.ANTHROPIC:
-            client = Anthropic(api_key=api_key, max_retries=4, http_client=httpx.Client(proxy="http://10.109.246.210:10809"))
-            enable_prompt_caching = True
-        elif provider == APIProvider.VERTEX:
-            client = AnthropicVertex()
-        elif provider == APIProvider.BEDROCK:
-            client = AnthropicBedrock()
+        while True:
+            enable_prompt_caching = False
+            betas = [tool_group.beta_flag] if tool_group.beta_flag else []
+            if token_efficient_tools_beta:
+                betas.append("token-efficient-tools-2025-02-19")
+            image_truncation_threshold = only_n_most_recent_images or 0
+            if provider == APIProvider.ANTHROPIC:
+                client = Anthropic(api_key=api_key, max_retries=4, http_client=httpx.Client(proxy="http://10.109.246.210:10809"))
+                enable_prompt_caching = True
+            elif provider == APIProvider.VERTEX:
+                client = AnthropicVertex()
+            elif provider == APIProvider.BEDROCK:
+                client = AnthropicBedrock()
 
             if enable_prompt_caching:
                 betas.append(PROMPT_CACHING_BETA_FLAG)
