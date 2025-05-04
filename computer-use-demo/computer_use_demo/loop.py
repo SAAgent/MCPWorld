@@ -263,7 +263,6 @@ async def sampling_loop(
                 if content_block["type"] == "tool_use":
                     tool_name = content_block["name"]
                     tool_input = cast(dict[str, Any], content_block["input"])
-
                     result: Optional[ToolResult] = None
 
                     # --- Record Tool Start ---
@@ -271,13 +270,17 @@ async def sampling_loop(
                         evaluator, evaluator_task_id, tool_name, tool_input
                     )
                     # --- End Record Tool Start ---
-
-
-                    result = await tool_collection.run(
-                        name=content_block["name"],
-                        tool_input=cast(dict[str, Any], content_block["input"]),
-                    )
-                    
+                    if content_block["name"] in tool_collection.tool_map.keys():
+                        result = await tool_collection.run(
+                            name=content_block["name"],
+                            tool_input=cast(dict[str, Any], content_block["input"]),
+                        )
+                    else:
+                        result = await mcp_client.call_tool(
+                            name=content_block["name"],
+                            tool_input=cast(dict[str, Any], content_block["input"]),
+                        )
+                    # --- End Record Tool Start ---
                     _record_tool_call_end(
                         evaluator, evaluator_task_id, tool_name, result
                     )
@@ -287,45 +290,11 @@ async def sampling_loop(
                         _make_api_tool_result(result, content_block["id"])
                     )
                     tool_output_callback(result, content_block["id"])
-                tool_result_content: list[BetaToolResultBlockParam] = []
-                for content_block in response_params:
-                    output_callback(content_block)
-                    if content_block["type"] == "tool_use":
-                        tool_name = content_block["name"]
-                        tool_input = cast(dict[str, Any], content_block["input"])
-                        result: Optional[ToolResult] = None
-
-                        # --- Record Tool Start ---
-                        _record_tool_call_start(
-                            evaluator, evaluator_task_id, tool_name, tool_input
-                        )
-                        # --- End Record Tool Start ---
-                        if content_block["name"] in tool_collection.tool_map.keys():
-                            result = await tool_collection.run(
-                                name=content_block["name"],
-                                tool_input=cast(dict[str, Any], content_block["input"]),
-                            )
-                        else:
-                            result = await mcp_client.call_tool(
-                                name=content_block["name"],
-                                tool_input=cast(dict[str, Any], content_block["input"]),
-                            )
-                        # --- End Record Tool Start ---
-                        _record_tool_call_end(
-                            evaluator, evaluator_task_id, tool_name, result
-                        )
-                        # --- End Record Tool End ---
-
-                        tool_result_content.append(
-                            _make_api_tool_result(result, content_block["id"])
-                        )
-                        tool_output_callback(result, content_block["id"])
 
             if not tool_result_content:
                 return messages
 
             messages.append({"content": tool_result_content, "role": "user"})
-
     finally:
         await mcp_client.cleanup()
 
