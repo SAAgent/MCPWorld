@@ -167,13 +167,13 @@ async def sampling_loop(
     Agentic sampling loop for the assistant/tool interaction of computer use.
     """
     try:
-        mcp_servers = evaluator.config.get("mcp_server_path", [])
+        mcp_servers = evaluator.config.get("mcp_servers", [])
     except:
         mcp_servers = []
     mcp_client = MCPClient()
     try:
-        for server_path in mcp_servers:
-            await mcp_client.connect_to_server(server_path)
+        for server in mcp_servers:
+            await mcp_client.connect_to_server(server)
 
         tool_group = TOOL_GROUPS_BY_VERSION[tool_version]
         tool_collection = ToolCollection(*(ToolCls() for ToolCls in tool_group.tools))
