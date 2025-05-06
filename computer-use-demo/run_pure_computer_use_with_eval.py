@@ -261,6 +261,8 @@ if __name__ == "__main__":
     parser.add_argument("--log_dir", type=str, default="logs_computer_use_eval", help="Directory for evaluator logs and results")
     parser.add_argument("--app_path", type=str, default=None, help="Path to specific application if required by the task")
     parser.add_argument("--timeout", type=int, default=300, help="Overall execution timeout in seconds (default: 300)")
+    parser.add_argument("--exec_mode", type=str, choices=["mixed", "gui", "api"], default="mixed", 
+                        help="Agent mode for tool use evaluation (default: mixed)")
 
     args = parser.parse_args()
 
@@ -287,8 +289,8 @@ if __name__ == "__main__":
         evaluator = BaseEvaluator(
             task=task_config,
             log_dir=args.log_dir,
-            app_path=args.app_path
-            # custom_params 可以根据需要添加
+            app_path=args.app_path,
+            custom_params={"exec_mode": args.exec_mode},
         )
         evaluator_instance_for_signal = evaluator # 赋值给全局变量供信号处理
         evaluator.register_completion_callback(handle_evaluator_event)

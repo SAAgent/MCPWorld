@@ -166,20 +166,22 @@ async def sampling_loop(
     """
     Agentic sampling loop for the assistant/tool interaction of computer use.
     """
-    try:
-        mcp_servers = evaluator.config.get("mcp_servers", [])
-    except:
-        mcp_servers = []
+    mcp_servers = evaluator.config.get("mcp_servers", [])
     mcp_client = MCPClient()
     try:
         for server in mcp_servers:
             await mcp_client.connect_to_server(server)
 
         tool_group = TOOL_GROUPS_BY_VERSION[tool_version]
+        if evaluator.config.get("exec_mode", "mixed") == "api":
+            for tool in tool_group.tools:
+                if "computer" in tool.name:
+                    tool_group.tools.remove(tool)
         tool_collection = ToolCollection(*(ToolCls() for ToolCls in tool_group.tools))
         all_tool_list = tool_collection.to_params()
-        mcp_tools = await mcp_client.list_tools()
-        all_tool_list.extend(mcp_tools)
+        if evaluator.config.get("exec_mode", "mixed") in ["mixed", "api"]:
+            mcp_tools = await mcp_client.list_tools()
+            all_tool_list.extend(mcp_tools)
 
         system = BetaTextBlockParam(
             type="text",
