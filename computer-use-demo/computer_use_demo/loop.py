@@ -157,6 +157,7 @@ async def sampling_loop(
     api_key: str,
     evaluator: Optional[BaseEvaluator] = None,
     evaluator_task_id: Optional[str] = None,
+    is_timeout: Callable[[], bool],
     only_n_most_recent_images: int | None = None,
     max_tokens: int = 4096,
     tool_version: ToolVersion,
@@ -187,7 +188,7 @@ async def sampling_loop(
             text=f"{SYSTEM_PROMPT}{' ' + system_prompt_suffix if system_prompt_suffix else ''}",
         )
 
-        while True:
+        while not is_timeout():
             enable_prompt_caching = False
             betas = [tool_group.beta_flag] if tool_group.beta_flag else []
             if token_efficient_tools_beta:
