@@ -19,10 +19,11 @@ class MCPClient:
         """
         command = server_start_option.get('command')
         args = server_start_option.get('args')
+        envs = server_start_option.get('env')
         server_params = StdioServerParameters(
             command=command,
             args=args,
-            env=None
+            env=envs
         )
 
         stdio_transport = await self.exit_stack.enter_async_context(stdio_client(server_params))
