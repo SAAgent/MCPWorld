@@ -63,17 +63,18 @@ class MCPConnectionStdio(MCPConnection):
     """MCP connection using standard input/output."""
 
     def __init__(
-        self, command: str, args: list[str] = [], env: dict[str, str] = None
+        self, command: str, args: list[str] = [], env: dict[str, str] = None, cwd: str = None
     ):
         super().__init__()
         self.command = command
         self.args = args
         self.env = env
+        self.cwd = cwd
 
     async def _create_rw_context(self):
         return stdio_client(
             StdioServerParameters(
-                command=self.command, args=self.args, env=self.env
+                command=self.command, args=self.args, env=self.env, cwd=self.cwd
             )
         )
 
@@ -101,6 +102,7 @@ def create_mcp_connection(config: dict[str, Any]) -> MCPConnection:
             command=config["command"],
             args=config.get("args"),
             env=config.get("env"),
+            cwd=config.get("cwd"),
         )
 
     elif conn_type == "sse":

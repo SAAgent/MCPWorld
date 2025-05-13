@@ -20,7 +20,9 @@ class MCPClient:
         command = server_start_option.get('command')
         args = server_start_option.get('args')
         envs = server_start_option.get('env')
+        cwd = server_start_option.get('cwd')
         server_params = StdioServerParameters(
+            cwd=cwd,
             command=command,
             args=args,
             env=envs
