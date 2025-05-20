@@ -6,6 +6,8 @@
 
 请阅读 PC-Canary 的 README 文档，通过 PC-Canary 下的 Dockerfile 构建 VNC 桌面环境
 ```bash
+git clone https://github.com/SAAgent/MCPWorld.git
+cd MCPWorld
 git submodule update --init PC-Canary
 ```
 
@@ -32,17 +34,6 @@ STREAMLIT_SERVER_PORT=8501 python -m streamlit run computer_use_demo/streamlit.p
 ```
 随后访问`https://your-ip:8083`即可进入主页环境中
 
-（建议）在桌面环境中把自动锁屏关掉
+This script will output agent interactions and evaluation events directly to the console. Final results and detailed logs will be saved in the directory specified by `--log_dir`.
 
 （已知问题）要注意`computer-use-demo/image/static_content/index.html` 中的 vnc 地址是否与实际 VNC 桌面的 IP 和端口一致，可能需要改成实际 ip 而非 localhost
-
-## 配置并启动 Evaluator Demo
-目前的实现中 streamlit.py 已经集成了 evaluator 的服务，因此只需要启动 streamlit 服务即可。
-
-当前的实现能在网页中同时运行 Agent 和 Evaluator，在运行的过程中配置单个任务并测试 Agent 是否能够完成任务。
-
-但是实际使用 Evaluator 需要配置好用于评测的 app。在 PC-Canary 的 README 中描述了一个示例：其将 tdesktop 客户端的代码主仓库作为 submodule 引入，将应用客户端编译以后接入容器环境中评测。
-
-在完成上述的配置，接入可执行应用如 tdesktop 后，就可以在实际 demo 网页中使用 evaluator。
-
-目前还需要手动输入单个任务的instruction，点击发送给云端 LLM 后执行任务。此外由于 streamlit 库的一些限制，目前需要完成任务后手动刷新一下才能让结果在网页上显示。

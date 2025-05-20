@@ -170,6 +170,7 @@ class BaseComputerTool:
                     results.append(
                         await self.shell(" ".join(command_parts), take_screenshot=False)
                     )
+                await asyncio.sleep(self._screenshot_delay)
                 screenshot_base64 = (await self.screenshot()).base64_image
                 return ToolResult(
                     output="".join(result.output or "" for result in results),
