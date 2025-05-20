@@ -168,7 +168,7 @@ python scripts/run_benchmark.py \
 }
 ``` -->
 
----
+<!-- --- -->
 
 ## 📝 License
 
