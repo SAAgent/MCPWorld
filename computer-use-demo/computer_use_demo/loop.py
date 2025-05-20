@@ -157,6 +157,7 @@ async def sampling_loop(
     api_key: str,
     evaluator: Optional[BaseEvaluator] = None,
     evaluator_task_id: Optional[str] = None,
+    is_timeout: Callable[[], bool],
     only_n_most_recent_images: int | None = None,
     max_tokens: int = 4096,
     tool_version: ToolVersion,
@@ -169,9 +170,6 @@ async def sampling_loop(
     mcp_servers = evaluator.config.get("mcp_servers", [])
     mcp_client = MCPClient()
     try:
-        for server in mcp_servers:
-            await mcp_client.connect_to_server(server)
-
         tool_group = TOOL_GROUPS_BY_VERSION[tool_version]
         if evaluator.config.get("exec_mode", "mixed") == "api":
             for tool in tool_group.tools:
@@ -180,6 +178,8 @@ async def sampling_loop(
         tool_collection = ToolCollection(*(ToolCls() for ToolCls in tool_group.tools))
         all_tool_list = tool_collection.to_params()
         if evaluator.config.get("exec_mode", "mixed") in ["mixed", "api"]:
+            for server in mcp_servers:
+                await mcp_client.connect_to_server(server)
             mcp_tools = await mcp_client.list_tools()
             all_tool_list.extend(mcp_tools)
 
@@ -188,7 +188,7 @@ async def sampling_loop(
             text=f"{SYSTEM_PROMPT}{' ' + system_prompt_suffix if system_prompt_suffix else ''}",
         )
 
-        while True:
+        while not is_timeout():
             enable_prompt_caching = False
             betas = [tool_group.beta_flag] if tool_group.beta_flag else []
             if token_efficient_tools_beta:

@@ -141,11 +141,12 @@ async def run_agent_loop(args, evaluator: BaseEvaluator): # <-- 接收 evaluator
     # 4. 开始多轮对话循环 (添加 evaluation_finished 条件)
     turn_count = 0
     start_time = time.time() # 记录循环开始时间以备超时检查
+    is_timeout = lambda : args.timeout > 0 and time.time() - start_time > args.timeout
     while (args.max_turns is None or turn_count < args.max_turns) and not evaluation_finished:
         # 检查超时 (相对于循环开始)
-        if args.timeout > 0 and (time.time() - start_time > args.timeout):
-             print(f"\n执行超时 ({args.timeout}秒)")
-             break # 让 finally 处理停止
+        if is_timeout():
+            print(f"\n执行超时 ({args.timeout}秒)")
+            break # 让 finally 处理停止
 
         print("-" * 30)
         # 获取用户输入
@@ -207,6 +208,7 @@ async def run_agent_loop(args, evaluator: BaseEvaluator): # <-- 接收 evaluator
                 system_prompt_suffix=args.system_prompt_suffix,
                 evaluator=evaluator,                 # <--- 传递评估器
                 evaluator_task_id=evaluator.task_id, # <--- 传递任务 ID
+                is_timeout=is_timeout,
                 only_n_most_recent_images=None,
                 thinking_budget=None,
                 token_efficient_tools_beta=False
@@ -240,9 +242,11 @@ async def run_agent_loop(args, evaluator: BaseEvaluator): # <-- 接收 evaluator
         #        # if "任务完成" in text_content:
         #        #     evaluator.record_event(AgentEvent.AGENT_REPORTED_COMPLETION, ...)
         #        pass
+        if evaluator.hook_manager.evaluate_on_completion:
+            evaluator.hook_manager.trigger_evaluate_on_completion()
 
         turn_count += 1
-        time.sleep(0.1) # 短暂 sleep，避免 CPU 占用过高，并给回调一点时间
+        time.sleep(1) # 短暂 sleep，避免 CPU 占用过高，并给回调一点时间
 
 # --- 命令行参数解析与主函数 ---
 if __name__ == "__main__":
@@ -292,6 +296,7 @@ if __name__ == "__main__":
             app_path=args.app_path,
             custom_params={"exec_mode": args.exec_mode},
         )
+        evaluator.timeout = args.timeout
         evaluator_instance_for_signal = evaluator # 赋值给全局变量供信号处理
         evaluator.register_completion_callback(handle_evaluator_event)
     except Exception as e:
