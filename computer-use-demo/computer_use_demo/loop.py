@@ -66,7 +66,7 @@ SYSTEM_PROMPT = f"""<SYSTEM_CAPABILITY>
 * You are utilising an Ubuntu virtual machine using {platform.machine()} architecture with internet access.
 * You can feel free to install Ubuntu applications with your bash tool. Use curl instead of wget.
 * To open firefox, please just click on the firefox icon.  Note, firefox-esr is what is installed on your system.
-* Using bash tool you can start GUI applications, but you need to set export DISPLAY=:1 and use a subshell. For example "(DISPLAY=:1 xterm &)". GUI apps run with bash tool will appear within your desktop environment, but they may take some time to appear. Take a screenshot to confirm it did.
+* Using bash tool you can start GUI applications, but you need to set export DISPLAY={os.getenv("DISPLAY")} and use a subshell. For example "(DISPLAY={os.getenv("DISPLAY")} xterm &)". GUI apps run with bash tool will appear within your desktop environment, but they may take some time to appear. Take a screenshot to confirm it did.
 * When using your bash tool with commands that are expected to output very large quantities of text, redirect into a tmp file and use str_replace_editor or `grep -n -B <lines before> -A <lines after> <query> <filename>` to confirm output.
 * When viewing a page it can be helpful to zoom out so that you can see everything on the page.  Either that, or make sure you scroll down to see everything before deciding something isn't available.
 * When using your computer function calls, they take a while to run and send back to you.  Where possible/feasible, try to chain multiple of these calls all into one function calls request.
@@ -77,6 +77,37 @@ SYSTEM_PROMPT = f"""<SYSTEM_CAPABILITY>
 * When using Firefox, if a startup wizard appears, IGNORE IT.  Do not even click "skip this step".  Instead, click on the address bar where it says "Search or enter address", and enter the appropriate search term or URL there.
 * If the item you are looking at is a pdf, if after taking a single screenshot of the pdf it seems that you want to read the entire document instead of trying to continue to read the pdf from your screenshots + navigation, determine the URL, use curl to download the pdf, install and use pdftotext to convert it to a text file, and then read that text file directly with your StrReplaceEditTool.
 </IMPORTANT>"""
+
+SYSTEM_PROMPT_API_ONLY = f"""<SYSTEM_CAPABILITY>
+* You are utilising an Ubuntu virtual machine using {platform.machine()} architecture with internet access.
+* You can feel free to install Ubuntu applications with your bash tool. Use curl instead of wget.
+* When using your bash tool with commands that are expected to output very large quantities of text, redirect into a tmp file and use str_replace_editor or `grep -n -B <lines before> -A <lines after> <query> <filename>` to confirm output.
+* When using your computer function calls, they take a while to run and send back to you.  Where possible/feasible, try to chain multiple of these calls all into one function calls request.
+* The current date is {datetime.today().strftime('%A, %B %-d, %Y')}.
+</SYSTEM_CAPABILITY>
+
+<IMPORTANT>
+* If the item you are looking at is a pdf, if after taking a single screenshot of the pdf it seems that you want to read the entire document instead of trying to continue to read the pdf from your screenshots + navigation, determine the URL, use curl to download the pdf, install and use pdftotext to convert it to a text file, and then read that text file directly with your StrReplaceEditTool.
+</IMPORTANT>"""
+
+SYSTEM_PROMPT_NO_BASH = f"""<SYSTEM_CAPABILITY>
+* You are utilising an Ubuntu virtual machine using {platform.machine()} architecture with internet access.
+* To open firefox, please just click on the firefox icon.  Note, firefox-esr is what is installed on your system.
+* When viewing a page it can be helpful to zoom out so that you can see everything on the page.  Either that, or make sure you scroll down to see everything before deciding something isn't available.
+* When using your computer function calls, they take a while to run and send back to you.  Where possible/feasible, try to chain multiple of these calls all into one function calls request.
+* The current date is {datetime.today().strftime('%A, %B %-d, %Y')}.
+</SYSTEM_CAPABILITY>
+
+<IMPORTANT>
+* When using Firefox, if a startup wizard appears, IGNORE IT.  Do not even click "skip this step".  Instead, click on the address bar where it says "Search or enter address", and enter the appropriate search term or URL there.
+</IMPORTANT>"""
+
+SYSTEM_PROMPT_NO_BASH_API_ONLY = f"""<SYSTEM_CAPABILITY>
+* You are utilising an Ubuntu virtual machine using {platform.machine()} architecture with internet access.
+* When using your computer function calls, they take a while to run and send back to you.  Where possible/feasible, try to chain multiple of these calls all into one function calls request.
+* The current date is {datetime.today().strftime('%A, %B %-d, %Y')}.
+</SYSTEM_CAPABILITY>
+"""
 
 
 # --- Evaluator Helper Functions ---
@@ -171,22 +202,29 @@ async def sampling_loop(
     mcp_client = MCPClient()
     try:
         tool_group = TOOL_GROUPS_BY_VERSION[tool_version]
-        if evaluator.config.get("exec_mode", "mixed") == "api":
+        exec_mode = evaluator.config.get("exec_mode", "mixed")
+        if exec_mode == "api":
             for tool in tool_group.tools:
                 if "computer" in tool.name:
                     tool_group.tools.remove(tool)
         tool_collection = ToolCollection(*(ToolCls() for ToolCls in tool_group.tools))
         all_tool_list = tool_collection.to_params()
-        if evaluator.config.get("exec_mode", "mixed") in ["mixed", "api"]:
+        if exec_mode in ["mixed", "api"]:
             for server in mcp_servers:
                 await mcp_client.connect_to_server(server)
             mcp_tools = await mcp_client.list_tools()
             all_tool_list.extend(mcp_tools)
 
-        system = BetaTextBlockParam(
-            type="text",
-            text=f"{SYSTEM_PROMPT}{' ' + system_prompt_suffix if system_prompt_suffix else ''}",
-        )
+        if tool_version == "computer_only":
+            system = BetaTextBlockParam(
+                type="text",
+                text=f"{SYSTEM_PROMPT_NO_BASH_API_ONLY if exec_mode == 'api' else SYSTEM_PROMPT_NO_BASH}{' ' + system_prompt_suffix if system_prompt_suffix else ''}",
+            )
+        else:
+            system = BetaTextBlockParam(
+                type="text",
+                text=f"{SYSTEM_PROMPT_API_ONLY if exec_mode == 'api' else SYSTEM_PROMPT}{' ' + system_prompt_suffix if system_prompt_suffix else ''}",
+            )        
 
         while not is_timeout():
             enable_prompt_caching = False
@@ -195,7 +233,7 @@ async def sampling_loop(
                 betas.append("token-efficient-tools-2025-02-19")
             image_truncation_threshold = only_n_most_recent_images or 0
             if provider == APIProvider.ANTHROPIC:
-                client = Anthropic(api_key=api_key, max_retries=4, http_client=httpx.Client(proxy="http://10.109.246.210:10809"))
+                client = Anthropic(api_key=api_key, max_retries=4, http_client=httpx.Client(proxy="http://10.161.28.28:10809"))
                 enable_prompt_caching = True
             elif provider == APIProvider.VERTEX:
                 client = AnthropicVertex()
@@ -237,6 +275,7 @@ async def sampling_loop(
                     tools=all_tool_list,
                     betas=betas,
                     extra_body=extra_body,
+                    temperature=0,
                 )
             except (APIStatusError, APIResponseValidationError) as e:
                 api_response_callback(e.request, e.response, e)

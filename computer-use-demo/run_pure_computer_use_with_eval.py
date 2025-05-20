@@ -250,7 +250,7 @@ async def run_agent_loop(args, evaluator: BaseEvaluator): # <-- 接收 evaluator
 
 # --- 命令行参数解析与主函数 ---
 if __name__ == "__main__":
-    available_tool_versions = ["computer_use_20250124", "computer_use_20241022"]
+    available_tool_versions = ["computer_use_20250124", "computer_only", "computer_use_20241022"]
 
     parser = argparse.ArgumentParser(description="Run Computer Use Demo Agent Headlessly with Evaluator")
     # Agent 参数
@@ -273,6 +273,10 @@ if __name__ == "__main__":
     # 检查 API Key
     if not (args.api_key or os.getenv("ANTHROPIC_API_KEY")):
         print("错误: 必须提供 Anthropic API 密钥 (--api_key 或 ANTHROPIC_API_KEY 环境变量)")
+        sys.exit(1)
+    
+    if not os.getenv("DISPLAY"):
+        print("错误: 必须提供DISPLAY环境变量")
         sys.exit(1)
 
     # 解析 task_id
